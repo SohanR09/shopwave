@@ -16,10 +16,18 @@ import { cn, getSession } from "@/lib/utils"
 import { Heart, LogOut, Menu, Search, ShoppingCart, User, X } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar"
 
 export default function Header() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HeaderComponent />
+    </Suspense>
+  )
+}
+
+function HeaderComponent() {
   const supabase = getSupabaseBrowser()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
