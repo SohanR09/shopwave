@@ -1,7 +1,7 @@
 import Link from "next/link"
 import Image from "next/image"
-import { getSupabaseServer } from "@/lib/supabase-client"
 import { Card, CardContent } from "@/components/ui/card"
+import { getSupabaseServer } from "@/lib/supabase"
 
 export default async function CategoriesPage() {
   const supabase = getSupabaseServer()

@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { getSupabaseBrowser } from "@/lib/supabase"
 import type { Product, Category, ProductImage } from "@/types"
 import { Button } from "@/components/ui/button"
@@ -21,9 +21,10 @@ import { v4 as uuidv4 } from "uuid"
 interface ProductFormProps {
   initialData?: Product
   onReload?: any
+  setError?: any
 }
 
-export default function ProductForm({ initialData,onReload }: ProductFormProps) {
+export default function ProductForm({ initialData,onReload, setError }: ProductFormProps) {
   const [product, setProduct] = useState<Partial<Product>>({
     name: "",
     slug: "",
@@ -60,9 +61,9 @@ export default function ProductForm({ initialData,onReload }: ProductFormProps) 
       const { data, error } = await supabase.from("categories").select("*").order("name")
 
       if (error) throw error
-      setCategories(data || [])
+      setCategories(data as any || [])
     } catch (error: any) {
-      console.error("Error fetching categories:", error.message)
+      setError(error.message)
       toast({
         variant: "destructive",
         title: "Error",
@@ -137,7 +138,7 @@ export default function ProductForm({ initialData,onReload }: ProductFormProps) 
         description: "Image has been uploaded successfully",
       })
     } catch (error: any) {
-      console.error("Error uploading image:", error.message)
+      setError(error.message)
       toast({
         variant: "destructive",
         title: "Error",
@@ -177,7 +178,7 @@ export default function ProductForm({ initialData,onReload }: ProductFormProps) 
         description: "Image has been deleted successfully",
       })
     } catch (error: any) {
-      console.error("Error deleting image:", error.message)
+      setError(error.message)
       toast({
         variant: "destructive",
         title: "Error",
@@ -191,8 +192,50 @@ export default function ProductForm({ initialData,onReload }: ProductFormProps) 
     setIsSubmitting(true)
 
     try {
+      debugger
       if (!product.name || !product.price) {
-        throw new Error("Name and price are required")
+        setError("Name and price are required")
+        return
+      }
+      if(product.name.length < 3){
+        setError("Name must be at least 3 characters")
+        return
+      }
+      if(product?.slug && product?.slug.length < 2){
+        setError("Slug must be at least 2 characters")
+        return
+      }
+      if(product.brand === ""){
+        setError("Brand is required")
+        return
+      }
+      if(product.category_id === "none"){
+        setError("Category is required")
+        return
+      }
+      if(product?.inventory_quantity && product?.inventory_quantity < 0){
+        setError("Inventory quantity cannot be negative")
+        return
+      }
+      if(product?.price && product?.price < 0){
+        setError("Price cannot be negative")
+        return
+      }
+      if(product?.compare_at_price && product?.compare_at_price < 0){
+        setError("Compare at price cannot be negative")
+        return
+      }
+      if(product?.cost_price && product?.cost_price < 0){
+        setError("Cost price cannot be negative")
+        return
+      }
+      if(product?.sku && product?.sku.length < 3){
+        setError("SKU must be at least 3 characters")
+        return
+      }
+      if(product?.barcode && product?.barcode.length < 3){
+        setError("Barcode must be at least 3 characters")
+        return
       }
 
       let productId = initialData?.id
@@ -217,9 +260,12 @@ export default function ProductForm({ initialData,onReload }: ProductFormProps) 
             is_featured: product.is_featured,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", productId)
+          .eq("id", productId as string)
 
-        if (error) throw error
+        if (error) {
+          setError(error.message)
+          return
+        }
       } else {
         // Create new product
         const { data, error } = await supabase
@@ -242,8 +288,11 @@ export default function ProductForm({ initialData,onReload }: ProductFormProps) 
           .select()
           .single()
 
-        if (error) throw error
-        productId = data.id
+        if (error) {
+          setError(error.message)
+          return
+        }
+        productId = data.id as string
       }
 
       // Handle images
@@ -256,9 +305,11 @@ export default function ProductForm({ initialData,onReload }: ProductFormProps) 
 
         const { error: imagesError } = await supabase.from("product_images").insert(imagesToInsert)
 
-        if (imagesError) throw imagesError
+        if (imagesError) {
+          setError(imagesError.message)
+          return
+        }
       }
-
       toast({
         title: isEditing ? "Product updated" : "Product created",
         description: isEditing ? "Product has been updated successfully" : "Product has been created successfully",
@@ -266,8 +317,29 @@ export default function ProductForm({ initialData,onReload }: ProductFormProps) 
 
       router.push("/admin/products")
       onReload()
+      setTimeout(() => {
+        setError("")
+        setProduct({
+          name: "",
+          slug: "",
+          description: "",
+          price: 0,
+          compare_at_price: 0,
+          cost_price: 0,
+          sku: "",
+          barcode: "",
+          inventory_quantity: 0,
+          category_id: "",
+          brand: "",
+          is_active: true,
+          is_featured: false,
+          images: [],
+          created_at: "",
+          updated_at: "",
+        })
+      }, 1000)
     } catch (error: any) {
-      console.error("Error saving product:", error.message)
+      setError(error.message)
       toast({
         variant: "destructive",
         title: "Error",
@@ -277,7 +349,7 @@ export default function ProductForm({ initialData,onReload }: ProductFormProps) 
       setIsSubmitting(false)
     }
   }
-
+  const pathname = usePathname()
   return (
     <form onSubmit={handleSubmit}>
       <div className="space-y-6">
@@ -289,7 +361,7 @@ export default function ProductForm({ initialData,onReload }: ProductFormProps) 
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" onClick={() => router.push("/admin/products")}>
+            <Button type="button" variant="outline" className={pathname === "/admin/products" ?  "hidden" : ""} onClick={() => router.push("/admin/products")}>
               Cancel
             </Button>
             <Button type="submit" className="bg-glacier-600 hover:bg-glacier-700" disabled={isSubmitting}>

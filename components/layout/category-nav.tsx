@@ -26,7 +26,7 @@ export default function CategoryNav() {
         const parentCategories: any = data?.filter((cat) => !cat.parent_id) || []
         setCategories(parentCategories.slice(0, 6)) // Limit to 6 categories for the nav
       } catch (error) {
-        console.error("Error fetching categories:", error)
+        setCategories([])
       } finally {
         setLoading(false)
       }
@@ -35,7 +35,7 @@ export default function CategoryNav() {
     fetchCategories()
   }, [])
 
-  if(pathname !== "/" && !pathname.includes("/category/")){
+  if(pathname !== "/" && !pathname.includes("/category/") && !pathname.includes("/sale") && !pathname.includes("/categories")){
     return null
   }
 

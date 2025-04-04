@@ -35,6 +35,7 @@ export default function ProductsPage() {
   const router = useRouter()
   const { toast } = useToast()
   const supabase = getSupabaseBrowser()
+  const [error, setError] = useState("")
 
   useEffect(() => {
     fetchProducts()
@@ -49,9 +50,9 @@ export default function ProductsPage() {
         .order("created_at", { ascending: false })
 
       if (error) throw error
-      setProducts(data || [])
+      setProducts(data as any || [])
     } catch (error: any) {
-      console.error("Error fetching products:", error.message)
+      setError(error.message)
       toast({
         variant: "destructive",
         title: "Error",
@@ -87,7 +88,7 @@ export default function ProductsPage() {
       // Refresh the products list
       fetchProducts()
     } catch (error: any) {
-      console.error("Error deleting product:", error.message)
+      setError(error.message)
       toast({
         variant: "destructive",
         title: "Error",
@@ -113,8 +114,15 @@ export default function ProductsPage() {
                 </Button>
             </DialogTrigger>
             <DialogContent>
+              <DialogHeader>
+                <DialogTitle>
+                  <span className="text-red-500">{error ?"Error: "+ error : ""}</span>
+                </DialogTitle>
+              </DialogHeader>
                 <ProductForm onReload={() => {
                     fetchProducts()
+                }} setError={(error: string) => {
+                    setError(error)
                 }} />
             </DialogContent>
         </Dialog>

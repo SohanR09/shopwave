@@ -36,6 +36,8 @@ export default function CategoriesPage() {
   const { toast } = useToast()
   const supabase = getSupabaseBrowser()
 
+  const [error, setError] = useState("")
+
   useEffect(() => {
     fetchCategories()
   }, [])
@@ -46,7 +48,7 @@ export default function CategoriesPage() {
       const { data, error } = await supabase.from("categories").select("*").order("name")
 
       if (error) throw error
-      setCategories(data || [])
+      setCategories(data as any || [])
     } catch (error: any) {
       console.error("Error fetching categories:", error.message)
       toast({
@@ -121,8 +123,13 @@ export default function CategoriesPage() {
                 </Button>
             </DialogTrigger>
             <DialogContent>
+              <DialogHeader>
+                <DialogTitle><span className="text-red-500">{error ?"Error: "+ error : ""}</span></DialogTitle>
+              </DialogHeader>
                 <CategoryForm onReload={() => {
                     fetchCategories()
+                }} setError={(error: string) => {
+                    setError(error)
                 }} />
             </DialogContent>
         </Dialog>

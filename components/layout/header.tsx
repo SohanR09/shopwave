@@ -45,7 +45,6 @@ function HeaderComponent() {
 
   const accessToken = useSearchParams().get("access_token")
   const providerName = useSearchParams().get("provider_name")
-  console.log(providerName)
   useEffect(() => {
     const loginWithToken = async () => {
       if (accessToken) {
@@ -109,7 +108,6 @@ function HeaderComponent() {
     if (error) {
       console.error("Error signing out:", error)
     }
-    console.log("Signing out")
     localStorage.clear()
     setTimeout(() => {
       window.location.reload()

@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { getSupabaseBrowser } from "@/lib/supabase"
 import type { Category } from "@/types"
 import { Button } from "@/components/ui/button"
@@ -19,9 +19,10 @@ import { v4 as uuidv4 } from "uuid"
 interface CategoryFormProps {
   initialData?: Category
   onReload?: any
+  setError?: any
 }
 
-export default function CategoryForm({ initialData, onReload }: CategoryFormProps) {
+export default function CategoryForm({ initialData, onReload, setError }: CategoryFormProps) {
   const [category, setCategory] = useState<Partial<Category>>({
     name: "",
     slug: "",
@@ -30,6 +31,7 @@ export default function CategoryForm({ initialData, onReload }: CategoryFormProp
     image_url: "",
     ...initialData,
   })
+  const pathname = usePathname()
 
   const [categories, setCategories] = useState<Category[]>([])
   const [uploading, setUploading] = useState(false)
@@ -52,9 +54,10 @@ export default function CategoryForm({ initialData, onReload }: CategoryFormProp
       // Filter out the current category (if editing) to prevent self-reference
       const filteredCategories = isEditing ? data?.filter((c) => c.id !== initialData?.id) || [] : data || []
 
-      setCategories(filteredCategories)
+      setCategories(filteredCategories as any)
     } catch (error: any) {
       console.error("Error fetching categories:", error.message)
+      setError(error.message)
       toast({
         variant: "destructive",
         title: "Error",
@@ -115,7 +118,7 @@ export default function CategoryForm({ initialData, onReload }: CategoryFormProp
         description: "Image has been uploaded successfully",
       })
     } catch (error: any) {
-      console.error("Error uploading image:", error.message)
+      setError(error.message)
       toast({
         variant: "destructive",
         title: "Error",
@@ -134,7 +137,14 @@ export default function CategoryForm({ initialData, onReload }: CategoryFormProp
       if (!category.name || !category.slug) {
         throw new Error("Name and slug are required")
       }
-
+      if(category.name.length < 3){
+        setError("Name must be at least 3 characters")
+        return
+      }
+      if(category.slug.length < 2){
+        setError("Slug must be at least 2 characters")
+        return
+      }
       if (isEditing) {
         // Update existing category
         const { error } = await supabase
@@ -170,8 +180,18 @@ export default function CategoryForm({ initialData, onReload }: CategoryFormProp
 
       router.push("/admin/categories")
       onReload()
+      setTimeout(() => {
+        setError("")
+        setCategory({
+          name: "",
+          slug: "",
+          description: "",
+          parent_id: "",
+          image_url: "",
+        })
+      }, 1000)
     } catch (error: any) {
-      console.error("Error saving category:", error.message)
+      setError(error.message)
       toast({
         variant: "destructive",
         title: "Error",
@@ -193,6 +213,7 @@ export default function CategoryForm({ initialData, onReload }: CategoryFormProp
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" className={pathname === "/admin/categories" ?  "hidden" : ""} onClick={() => router.push("/admin/categories")}>Cancel</Button>
             <Button type="submit" className="bg-glacier-600 hover:bg-glacier-700" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isEditing ? "Update Category" : "Create Category"}
