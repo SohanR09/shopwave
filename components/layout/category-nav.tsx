@@ -35,7 +35,7 @@ export default function CategoryNav() {
     fetchCategories()
   }, [])
 
-  if (pathname === "/wishlist" || pathname === "/cart" || pathname === "/checkout" || pathname === "/signin" || pathname === "/signup" || pathname === "/profile" || pathname === "/settings" || pathname === "/admin") {
+  if(pathname !== "/" && !pathname.includes("/category/")){
     return null
   }
 

@@ -116,7 +116,7 @@ function HeaderComponent() {
     }, 500)
   }
 
-  if (pathname === "/signin" || pathname === "/signup" || pathname === "/admin") {
+  if (pathname === "/signin" || pathname === "/signup" || pathname.includes("/admin")) {
     return null
   }
 
