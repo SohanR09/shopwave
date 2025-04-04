@@ -64,7 +64,8 @@ function SignInPageComponent() {
         localStorage.setItem("loginTime", Date.now().toString())
       }
 
-      router.push(callbackUrl)
+      // router.push(callbackUrl)
+      router.push("/")
       setTimeout(() => {
         window.location.reload()
       }, 500)
