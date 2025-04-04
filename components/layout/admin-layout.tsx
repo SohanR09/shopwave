@@ -7,7 +7,6 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { LayoutDashboard, ShoppingBag, Users, Package, FileText, Settings, LogOut, Menu, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 
 interface AdminLayoutProps {
@@ -17,7 +16,6 @@ interface AdminLayoutProps {
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
-  const { signOut } = useAuth()
 
   const routes = [
     {
@@ -84,7 +82,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             <Button
               variant="ghost"
               className="w-full justify-start text-glacier-100 hover:text-white hover:bg-glacier-800 hidden"
-              onClick={() => signOut()}
             >
               <LogOut className="h-5 w-5 mr-2" />
               Logout
@@ -137,7 +134,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   <Button
                     variant="ghost"
                     className="w-full justify-start text-glacier-100 hover:text-white hover:bg-glacier-800 hidden"
-                    onClick={() => signOut()}
                   >
                     <LogOut className="h-5 w-5 mr-2" />
                     Logout
