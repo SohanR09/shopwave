@@ -36,11 +36,11 @@ export default function AdminDashboard() {
         // Get total revenue
         const { data: orders } = await supabase.from("orders").select("total").eq("status", "completed")
 
-        const totalRevenue = orders?.reduce((sum, order) => sum + Number.parseFloat(order.total), 0) || 0
+        const totalRevenue = orders?.reduce((sum, order) => sum + Number.parseFloat(order.total as any), 0) || 0
 
         setStats({
           totalProducts: productsCount || 0,
-          totalCategories: categoriesCount || 0
+          totalCategories: categoriesCount || 0,
           totalCustomers: customersCount || 0,
           totalOrders: ordersCount || 0,
           totalRevenue,
