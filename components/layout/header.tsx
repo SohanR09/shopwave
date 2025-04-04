@@ -116,7 +116,7 @@ function HeaderComponent() {
     }, 500)
   }
 
-  if (pathname === "/signin" || pathname === "/signup") {
+  if (pathname === "/signin" || pathname === "/signup" || pathname === "/admin") {
     return null
   }
 
