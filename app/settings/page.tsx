@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { getSupabaseBrowser } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,8 +13,10 @@ import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, Loader2 } from "lucide-react"
+import { AlertCircle, Bell, CreditCard, Globe, Loader2, MapPin, Shield } from "lucide-react"
 import { getSession } from "@/lib/utils"
+import { Separator } from "@/components/ui/separator"
+import Link from "next/link"
 
 interface Address {
   id: string
@@ -35,6 +37,8 @@ interface Address {
 
 export default function SettingsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const tab = searchParams.get("tab") || "addresses"
   const supabase = getSupabaseBrowser()
 
   const [addresses, setAddresses] = useState<Address[]>([])
@@ -61,6 +65,21 @@ export default function SettingsPage() {
   const [user, setUser] = useState<any | null>(null)
   const [status, setStatus] = useState<any | null>(null)
 
+    // Payment methods state
+    const [paymentMethods, setPaymentMethods] = useState<any[]>([])
+    const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(false)
+  
+    // Notification settings
+    const [emailNotifications, setEmailNotifications] = useState(true)
+    const [orderUpdates, setOrderUpdates] = useState(true)
+    const [promotionalEmails, setPromotionalEmails] = useState(true)
+    const [savingNotifications, setSavingNotifications] = useState(false)
+  
+    // Privacy settings
+    const [savePaymentInfo, setSavePaymentInfo] = useState(true)
+    const [shareUsageData, setShareUsageData] = useState(true)
+    const [savingPrivacy, setSavingPrivacy] = useState(false)
+
   useEffect(() => {
     const fetchSession = async () => {
       const { session, user, error } = await getSession()
@@ -82,6 +101,7 @@ export default function SettingsPage() {
 
     if (status === "authenticated" && session.user) {
       fetchAddresses()
+      fetchPaymentMethods()
     }
   }, [status, session])
 
@@ -102,6 +122,21 @@ export default function SettingsPage() {
       console.error("Error fetching addresses:", error.message)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const fetchPaymentMethods = async () => {
+    if (!session?.user?.id) return
+
+    setLoadingPaymentMethods(true)
+    try {
+      // In a real app, you would fetch payment methods from your payment processor
+      // This is a placeholder for demonstration
+      setPaymentMethods([])
+    } catch (error: any) {
+      console.error("Error fetching payment methods:", error.message)
+    } finally {
+      setLoadingPaymentMethods(false)
     }
   }
 
@@ -213,6 +248,75 @@ export default function SettingsPage() {
     }
   }
 
+  const handleUpdateNotifications = async () => {
+    if (!session?.user?.id) return
+
+    setSavingNotifications(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const notificationPreferences = {
+        email_notifications: emailNotifications,
+        order_updates: orderUpdates,
+        promotional_emails: promotionalEmails,
+      }
+
+      const { error } = await supabase
+        .from("users")
+        .update({
+          notification_preferences: notificationPreferences,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", session.user.id)
+
+      if (error) throw error
+
+      setSuccess("Notification preferences updated successfully")
+    } catch (error: any) {
+      setError("Error updating notification preferences")
+    } finally {
+      setSavingNotifications(false)
+      setTimeout(() => {
+        setError("")
+      }, 3000)
+    }
+  }
+
+  const handleUpdatePrivacy = async () => {
+    if (!session?.user?.id) return
+
+    setSavingPrivacy(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const privacySettings = {
+        save_payment_info: savePaymentInfo,
+        share_usage_data: shareUsageData,
+      }
+
+      const { error } = await supabase
+        .from("users")
+        .update({
+          privacy_settings: privacySettings,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", session.user.id)
+
+      if (error) throw error
+
+      setSuccess("Privacy settings updated successfully")
+    } catch (error: any) {
+      setError( "Error updating privacy settings")
+    } finally {
+      setSavingPrivacy(false)
+      setTimeout(() => {
+        setError("")
+      }, 3000)
+    }
+  }
+
   if (status === "loading") {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
@@ -223,29 +327,87 @@ export default function SettingsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Account Settings</h1>
+    <h1 className="text-3xl font-bold mb-8">Account Settings</h1>
 
-      <Tabs defaultValue="addresses" className="max-w-4xl mx-auto">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="addresses">Addresses</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="preferences">Preferences</TabsTrigger>
-        </TabsList>
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+      {/* Sidebar */}
+      <div className="md:col-span-1">
+        <Card>
+          <CardContent className="p-4">
+            <nav className="space-y-1 pt-4">
+              <Link
+                href="/settings?tab=addresses"
+                className={`flex items-center px-3 py-2 text-sm rounded-md w-full ${
+                  tab === "addresses"
+                    ? "bg-glacier-50 text-glacier-700 font-medium"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <MapPin className="mr-3 h-4 w-4" />
+                Addresses
+              </Link>
+              <Link
+                href="/settings?tab=payment"
+                className={`flex items-center px-3 py-2 text-sm rounded-md w-full ${
+                  tab === "payment" ? "bg-glacier-50 text-glacier-700 font-medium" : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <CreditCard className="mr-3 h-4 w-4" />
+                Payment Methods
+              </Link>
+              <Link
+                href="/settings?tab=notifications"
+                className={`flex items-center px-3 py-2 text-sm rounded-md w-full ${
+                  tab === "notifications"
+                    ? "bg-glacier-50 text-glacier-700 font-medium"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <Bell className="mr-3 h-4 w-4" />
+                Notifications
+              </Link>
+              <Link
+                href="/settings?tab=preferences"
+                className={`flex items-center px-3 py-2 text-sm rounded-md w-full ${
+                  tab === "preferences"
+                    ? "bg-glacier-50 text-glacier-700 font-medium"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <Globe className="mr-3 h-4 w-4" />
+                Preferences
+              </Link>
+              <Link
+                href="/settings?tab=privacy"
+                className={`flex items-center px-3 py-2 text-sm rounded-md w-full ${
+                  tab === "privacy" ? "bg-glacier-50 text-glacier-700 font-medium" : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <Shield className="mr-3 h-4 w-4" />
+                Privacy
+              </Link>
+            </nav>
+          </CardContent>
+        </Card>
+      </div>
 
-        <TabsContent value="addresses" className="mt-6">
+      {/* Main Content */}
+      <div className="md:col-span-3">
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {success && (
+          <Alert className="mb-6 bg-green-50 text-green-800 border-green-200">
+            <AlertDescription>{success}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Addresses Tab */}
+        {tab === "addresses" && (
           <div className="space-y-6">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            {success && (
-              <Alert className="bg-green-50 text-green-800 border-green-200">
-                <AlertDescription>{success}</AlertDescription>
-              </Alert>
-            )}
-
             <Card>
               <CardHeader>
                 <CardTitle>Your Addresses</CardTitle>
@@ -376,7 +538,11 @@ export default function SettingsPage() {
 
                   <div className="space-y-2">
                     <Label htmlFor="address-line2">Address Line 2 (Optional)</Label>
-                    <Input id="address-line2" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} />
+                    <Input
+                      id="address-line2"
+                      value={addressLine2}
+                      onChange={(e) => setAddressLine2(e.target.value)}
+                    />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -424,48 +590,131 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
+        )}
 
-        <TabsContent value="notifications" className="mt-6">
+        {/* Payment Methods Tab */}
+        {tab === "payment" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Payment Methods</CardTitle>
+              <CardDescription>Manage your saved payment methods</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingPaymentMethods ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-glacier-600" />
+                </div>
+              ) : paymentMethods.length === 0 ? (
+                <div className="text-center py-6">
+                  <p className="text-gray-500">You don't have any saved payment methods yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {paymentMethods.map((method) => (
+                    <Card key={method.id} className="overflow-hidden">
+                      <div className="p-4 flex justify-between items-center">
+                        <div className="flex items-center">
+                          <div className="w-12 h-8 bg-gray-100 rounded flex items-center justify-center mr-4">
+                            {method.card.brand === "visa" ? (
+                              <span className="text-blue-600 font-bold">VISA</span>
+                            ) : method.card.brand === "mastercard" ? (
+                              <span className="text-red-600 font-bold">MC</span>
+                            ) : (
+                              <CreditCard className="h-5 w-5" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium">
+                              {method.card.brand.charAt(0).toUpperCase() + method.card.brand.slice(1)} ending in{" "}
+                              {method.card.last4}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              Expires {method.card.exp_month}/{method.card.exp_year}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center">
+                          {method.is_default && (
+                            <span className="mr-4 text-xs bg-glacier-100 text-glacier-800 px-2 py-0.5 rounded-full">
+                              Default
+                            </span>
+                          )}
+                          <Button variant="outline" size="sm" className="mr-2">
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-6">
+                <Button className="bg-glacier-600 hover:bg-glacier-700" disabled>Add Payment Method</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Notifications Tab */}
+        {tab === "notifications" && (
           <Card>
             <CardHeader>
               <CardTitle>Notification Preferences</CardTitle>
               <CardDescription>Manage how you receive notifications</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">Email Notifications</h3>
-                  <p className="text-sm text-gray-500">Receive order updates and promotional emails</p>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Email Notifications</h3>
+                    <p className="text-sm text-gray-500">Receive order updates and promotional emails</p>
+                  </div>
+                  <Switch checked={emailNotifications} onCheckedChange={setEmailNotifications} />
                 </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">Order Updates</h3>
-                  <p className="text-sm text-gray-500">Receive notifications about your orders</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Order Updates</h3>
+                    <p className="text-sm text-gray-500">Receive notifications about your orders</p>
+                  </div>
+                  <Switch checked={orderUpdates} onCheckedChange={setOrderUpdates} />
                 </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">Promotional Emails</h3>
-                  <p className="text-sm text-gray-500">Receive emails about sales and special offers</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Promotional Emails</h3>
+                    <p className="text-sm text-gray-500">Receive emails about sales and special offers</p>
+                  </div>
+                  <Switch checked={promotionalEmails} onCheckedChange={setPromotionalEmails} />
                 </div>
-                <Switch defaultChecked />
               </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">Product Updates</h3>
-                  <p className="text-sm text-gray-500">Receive notifications about product updates and restocks</p>
-                </div>
-                <Switch />
-              </div>
+
+              <Button
+                onClick={handleUpdateNotifications}
+                className="bg-glacier-600 hover:bg-glacier-700"
+                disabled={savingNotifications}
+              >
+                {savingNotifications ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Preferences"
+                )}
+              </Button>
             </CardContent>
           </Card>
-        </TabsContent>
+        )}
 
-        <TabsContent value="preferences" className="mt-6">
+        {/* Preferences Tab */}
+        {tab === "preferences" && (
           <Card>
             <CardHeader>
               <CardTitle>Account Preferences</CardTitle>
@@ -490,26 +739,69 @@ export default function SettingsPage() {
                   <option value="cad">CAD ($)</option>
                 </select>
               </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">Save Payment Information</h3>
-                  <p className="text-sm text-gray-500">Securely save payment methods for faster checkout</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-medium">Two-Factor Authentication</h3>
-                  <p className="text-sm text-gray-500">Add an extra layer of security to your account</p>
-                </div>
-                <Switch />
-              </div>
-              <Button className="bg-glacier-600 hover:bg-glacier-700">Save Preferences</Button>
+              <Button className="bg-glacier-600 hover:bg-glacier-700" disabled>Save Preferences</Button>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        )}
+
+        {/* Privacy Tab */}
+        {tab === "privacy" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Privacy Settings</CardTitle>
+              <CardDescription>Manage your privacy and data sharing preferences</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Save Payment Information</h3>
+                    <p className="text-sm text-gray-500">Securely save payment methods for faster checkout</p>
+                  </div>
+                  <Switch checked={savePaymentInfo} onCheckedChange={setSavePaymentInfo} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Share Usage Data</h3>
+                    <p className="text-sm text-gray-500">Help us improve by sharing anonymous usage data</p>
+                  </div>
+                  <Switch checked={shareUsageData} onCheckedChange={setShareUsageData} />
+                </div>
+              </div>
+
+              <Button
+                onClick={handleUpdatePrivacy}
+                className="bg-glacier-600 hover:bg-glacier-700"
+                disabled={savingPrivacy}
+              >
+                {savingPrivacy ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Privacy Settings"
+                )}
+              </Button>
+
+              <Separator className="my-4" />
+
+              <div>
+                <h3 className="font-medium mb-2">Data & Privacy</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  You can request a copy of your data or delete your account and all associated data.
+                </p>
+                <div className="flex space-x-4">
+                  <Button variant="outline" disabled>Request Data Export</Button>
+                  <Button variant="destructive" disabled>Delete Account</Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
+  </div>
   )
 }
 

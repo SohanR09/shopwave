@@ -35,7 +35,7 @@ export default function CategoryNav() {
     fetchCategories()
   }, [])
 
-  if(pathname !== "/" && !pathname.includes("/category/") && !pathname.includes("/sale") && !pathname.includes("/categories")){
+  if(pathname !== "/" && !pathname.includes("/category/") && !pathname.includes("/sale") && !pathname.includes("/categories") && !pathname.startsWith("/products")){
     return null
   }
 

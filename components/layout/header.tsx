@@ -12,12 +12,13 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { getSupabaseBrowser } from "@/lib/supabase"
-import { cn, getSession } from "@/lib/utils"
+import { cn, getSession, signOut } from "@/lib/utils"
 import { Heart, LogOut, Menu, Search, ShoppingCart, User, X } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar"
+import HeaderLoader from "../Loader/HeaderLoader"
 
 export default function Header() {
   return (
@@ -32,6 +33,7 @@ function HeaderComponent() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
 
   const router = useRouter()
   const [scrolled, setScrolled] = useState(false)
@@ -64,6 +66,8 @@ function HeaderComponent() {
   
   useEffect(() => {
     const fetchSession = async () => {
+      setIsLoading(true)
+     try {
       const { session, user, error } = await getSession()
       if (error) {
         console.error("Error fetching session:", error)
@@ -77,6 +81,11 @@ function HeaderComponent() {
           avatar_url: userData?.avatar_url,
         })
       }
+     } catch (error) {
+      console.log("Error fetching session:", error)
+     } finally {
+      setIsLoading(false)
+     }
     }
     fetchSession()
   }, [])
@@ -103,19 +112,16 @@ function HeaderComponent() {
   }
 
   const handleSignOut = async () => {
-    
-    const { error } = await supabase.auth.signOut()
-    if (error) {
-      console.error("Error signing out:", error)
-    }
-    localStorage.clear()
-    setTimeout(() => {
-      window.location.reload()
-    }, 500)
+    setIsLoading(true)
+    signOut()
   }
 
   if (pathname === "/signin" || pathname === "/signup" || pathname.includes("/admin")) {
     return null
+  }
+
+  if (isLoading) {
+    return <HeaderLoader />
   }
 
   return (
@@ -205,19 +211,19 @@ function HeaderComponent() {
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/profile">Profile</Link>
+                    <Link href="/profile" className="hover:cursor-pointer">Profile</Link>
                   </DropdownMenuItem>
                   {/* <DropdownMenuItem asChild>
                     <Link href="/orders">My Orders</Link>
                   </DropdownMenuItem> */}
                   <DropdownMenuItem asChild>
-                    <Link href="/settings">Settings</Link>
+                    <Link href="/settings" className="hover:cursor-pointer">Settings</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut}>
-                    <div className="flex items-center gap-2 hover:text-red-600">
+                  <DropdownMenuItem onClick={handleSignOut} className="hover:cursor-pointer hover:bg-red-100">
+                    <div className="flex items-center gap-2 text-red-600">
                       <LogOut className="mr-2 h-4 w-4" />
-                      <span>Log out</span>
+                      <span>Sign Out</span>
                     </div>
                   </DropdownMenuItem>
                 </DropdownMenuContent>

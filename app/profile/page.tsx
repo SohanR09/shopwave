@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { getSupabaseBrowser } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,12 +13,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, Loader2, Upload } from "lucide-react"
+import { AlertCircle, Heart, Loader2, Settings, Upload, Bell, ShoppingBag, User, LucideIcon, Lock, LogOut } from "lucide-react"
 import { v4 as uuidv4 } from "uuid"
-import { getSession } from "@/lib/utils"
+import { cn, getSession, signOut } from "@/lib/utils"
+import { Order, Review } from "@/types"
+import { Separator } from "@/components/ui/separator"
+import Link from "next/link"
+import { getWishlistItems } from "@/lib/getAllData"
+
+interface MenuItem {
+  icon: LucideIcon
+  label: string
+  value: string
+}
 
 export default function ProfilePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const tab = searchParams.get("tab") || "overview"
   const supabase = getSupabaseBrowser()
 
   const [name, setName] = useState("")
@@ -29,7 +41,26 @@ export default function ProfilePage() {
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [orders, setOrders] = useState<Order[]>([])
+  const [reviews, setReviews] = useState<Review[]>([])
+  const [wishlistItems, setWishlistItems] = useState<any[]>([])
+  const [loadingOrders, setLoadingOrders] = useState(false)
+  const [loadingReviews, setLoadingReviews] = useState(false)
+  const [loadingWishlist, setLoadingWishlist] = useState(false)
 
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [changingPassword, setChangingPassword] = useState(false)
+
+  // Notification settings
+  const [emailNotifications, setEmailNotifications] = useState(true)
+  const [orderUpdates, setOrderUpdates] = useState(true)
+  const [promotionalEmails, setPromotionalEmails] = useState(true)
+  const [savingNotifications, setSavingNotifications] = useState(false)
+
+  // Session state
   const [session, setSession] = useState<any | null>(null)
   const [user, setUser] = useState<any | null>(null)
   const [status, setStatus] = useState<any | null>(null)
@@ -54,6 +85,17 @@ export default function ProfilePage() {
     }
     if (status === "authenticated" && session.user) {
       fetchUserProfile()
+    }
+  }, [status, session])
+
+  useEffect(() => {
+    if (status === "authenticated" && session.user) {
+      const fetchWishlist = async () => {
+        const wishlistItems = await getWishlistItems({userId: session.user.id})
+        console.log("Wishlist items:", wishlistItems)
+        setWishlistItems(wishlistItems)
+      }
+      fetchWishlist()
     }
   }, [status, session])
 
@@ -140,6 +182,66 @@ export default function ProfilePage() {
     }
   }
 
+  const handleRemoveFromWishlist = async (wishlistId: string) => {
+    if (!user?.id) return
+
+    try {
+      const { error } = await supabase.from("wishlists").delete().eq("id", wishlistId).eq("user_id", user?.id)
+
+      if (error) throw error
+
+      // Update local state
+      setWishlistItems((prev) => prev.filter((item) => item.id !== wishlistId))
+      setSuccess("Item removed from wishlist")
+    } catch (error: any) {
+      setError(error.message || "Error removing item from wishlist")
+    }
+  }
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user?.id) return
+
+    setChangingPassword(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      if (newPassword !== confirmPassword) {
+        throw new Error("New passwords do not match")
+      }
+
+      // In a real app, you would verify the current password and update with the new one
+      // This is a simplified example
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+
+      if (error) throw error
+
+      setSuccess("Password updated successfully")
+      setCurrentPassword("")
+      setNewPassword("")
+      setConfirmPassword("")
+    } catch (error: any) {
+      setError(error.message || "Error updating password")
+    } finally {
+      setChangingPassword(false)
+    }
+  }
+
+  const handleSignOut = async () => {
+    setStatus("loading")
+    signOut()
+  }
+
+  const menuItems: MenuItem[] = [
+    { icon: User, label: "Overview", value: "overview" },
+    { icon: ShoppingBag, label: "Orders", value: "orders" },
+    { icon: Heart, label: "Wishlist", value: "wishlist" },
+    { icon: Bell, label: "Notifications", value: "notifications" },
+    { icon: Lock, label: "Security", value: "security" },
+    { icon: Settings, label: "Settings", value: "settings" },
+  ]
+
   if (status === "loading") {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
@@ -150,109 +252,467 @@ export default function ProfilePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">My Profile</h1>
+    <h1 className="text-3xl font-bold mb-8">My Account</h1>
 
-      <Tabs defaultValue="profile" className="max-w-3xl mx-auto">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="profile">Profile Information</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
-        </TabsList>
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+      {/* Sidebar */}
+      <div className="md:col-span-1">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-col items-center mb-6 pt-4">
+              <Avatar className="h-20 w-20 mb-4">
+                <AvatarImage src={avatarUrl} />
+                <AvatarFallback>{name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <h2 className="text-lg font-medium">{name || "User"}</h2>
+              <p className="text-sm text-gray-500">{email}</p>
+            </div>
 
-        <TabsContent value="profile" className="mt-6">
+            <Separator className="mb-4" />
+
+            <nav className="space-y-1">
+              {menuItems.map((item) => (
+                <Link
+                  key={item.value}
+                  href={`/profile?tab=${item.value}`}
+                  className={cn(
+                    "flex items-center px-3 py-2 text-sm rounded-md w-full",
+                    tab === item.value
+                      ? "bg-glacier-50 text-glacier-700 font-medium"
+                      : "text-gray-700 hover:bg-gray-100",
+                  )}
+                >
+                  <item.icon className="mr-3 h-4 w-4" />
+                  {item.label}
+                </Link>
+              ))}
+              <button
+                onClick={handleSignOut}
+                className="flex items-center px-3 py-2 text-sm rounded-md w-full text-red-600 hover:bg-red-50"
+              >
+                <LogOut className="mr-3 h-4 w-4" />
+                Sign Out
+              </button>
+            </nav>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Content */}
+      <div className="md:col-span-3">
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {success && (
+          <Alert className="mb-6 bg-green-50 text-green-800 border-green-200">
+            <AlertDescription>{success}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Overview Tab */}
+        {tab === "overview" && (
           <Card>
             <CardHeader>
               <CardTitle>Profile Information</CardTitle>
               <CardDescription>Update your personal information and profile picture</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              {success && (
-                <Alert className="bg-green-50 text-green-800 border-green-200">
-                  <AlertDescription>{success}</AlertDescription>
-                </Alert>
-              )}
+              <div className="flex flex-col sm:flex-row gap-6">
+                <div className="flex flex-col items-center space-y-4">
+                  <Avatar className="h-32 w-32">
+                    <AvatarImage src={avatarUrl} />
+                    <AvatarFallback className="text-2xl">{name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex items-center">
+                    <label className="cursor-pointer">
+                      <div className="flex items-center space-x-2 text-sm text-glacier-600 hover:text-glacier-700">
+                        <Upload className="h-4 w-4" />
+                        <span>{isUploading ? "Uploading..." : "Change profile picture"}</span>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleAvatarUpload}
+                        disabled={isUploading}
+                      />
+                    </label>
+                  </div>
+                </div>
 
-              <div className="flex flex-col items-center space-y-4">
-                <Avatar className="h-24 w-24">
-                  <AvatarImage src={avatarUrl} />
-                  <AvatarFallback>{name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <div className="flex items-center">
-                  <label className="cursor-pointer">
-                    <div className="flex items-center space-x-2 text-sm text-glacier-600 hover:text-glacier-700">
-                      <Upload className="h-4 w-4" />
-                      <span>{isUploading ? "Uploading..." : "Change profile picture"}</span>
+                <div className="flex-1">
+                  <form onSubmit={handleUpdateProfile} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Full Name</Label>
+                      <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input id="email" value={email} disabled className="bg-gray-50" />
+                      <p className="text-xs text-gray-500">
+                        Email cannot be changed. Contact support for assistance.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone Number</Label>
+                      <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                    </div>
+                    <Button type="submit" className="bg-glacier-600 hover:bg-glacier-700" disabled={isLoading}>
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save Changes"
+                      )}
+                    </Button>
+                  </form>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Orders Tab */}
+        {tab === "orders" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Order History</CardTitle>
+              <CardDescription>View and track your orders</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingOrders ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-glacier-600" />
+                </div>
+              ) : orders.length === 0 ? (
+                <div className="text-center py-8">
+                  <ShoppingBag className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No orders yet</h3>
+                  <p className="text-gray-500 mb-4">You haven't placed any orders yet.</p>
+                  <Button asChild className="bg-glacier-600 hover:bg-glacier-700">
+                    <Link href="/products">Start Shopping</Link>
+                  </Button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 text-xs uppercase text-gray-700">
+                      <tr>
+                        <th className="px-4 py-3 text-left">Order #</th>
+                        <th className="px-4 py-3 text-left">Date</th>
+                        <th className="px-4 py-3 text-left">Status</th>
+                        <th className="px-4 py-3 text-right">Total</th>
+                        <th className="px-4 py-3 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {orders.map((order) => (
+                        <tr key={order.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-4 text-sm">{order.order_number}</td>
+                          <td className="px-4 py-4 text-sm">{new Date(order?.created_at || "").toLocaleDateString()}</td>
+                          <td className="px-4 py-4 text-sm">
+                            <span
+                              className={cn(
+                                "px-2 py-1 rounded-full text-xs",
+                                order.status === "completed"
+                                  ? "bg-green-100 text-green-800"
+                                  : order.status === "processing"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : order.status === "cancelled"
+                                      ? "bg-red-100 text-red-800"
+                                      : "bg-yellow-100 text-yellow-800",
+                              )}
+                            >
+                              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 text-sm text-right">${order.total.toFixed(2)}</td>
+                          <td className="px-4 py-4 text-sm text-center">
+                            <Button asChild variant="outline" size="sm">
+                              <Link href={`/orders/${order.id}`}>View</Link>
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Wishlist Tab */}
+        {tab === "wishlist" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>My Wishlist</CardTitle>
+              <CardDescription>Products you've saved for later</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingWishlist ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-glacier-600" />
+                </div>
+              ) : wishlistItems.length === 0 ? (
+                <div className="text-center py-8">
+                  <Heart className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Your wishlist is empty</h3>
+                  <p className="text-gray-500 mb-4">Save items you like to your wishlist.</p>
+                  <Button asChild className="bg-glacier-600 hover:bg-glacier-700">
+                    <Link href="/products">Browse Products</Link>
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {wishlistItems.map((item) => (
+                    <Card key={item.id} className="overflow-hidden">
+                      <div className="flex p-4">
+                        <div className="relative w-20 h-20 flex-shrink-0">
+                          <img
+                            src={item?.product?.images?.[0]?.url || "https://placehold.co/600x400"}
+                            alt={item?.product?.name || ""}
+                            width={80}
+                            height={80}
+                            className="object-cover rounded"
+                          />
+                        </div>
+                        <div className="ml-4 flex-1">
+                          <Link href={`/product/${item.product.slug}`}>
+                            <h3 className="font-medium hover:text-glacier-600">{item.product.name}</h3>
+                          </Link>
+                          <p className="text-sm text-gray-500 mt-1">${item.product.price.toFixed(2)}</p>
+                          <div className="flex mt-2 space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                              onClick={() => handleRemoveFromWishlist(item.id)}
+                            >
+                              Remove
+                            </Button>
+                            <Button asChild size="sm" className="bg-glacier-600 hover:bg-glacier-700">
+                              <Link href={`/product/${item.product.slug}`}>View Product</Link>
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Notifications Tab */}
+        {tab === "notifications" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Notification Preferences</CardTitle>
+              <CardDescription>Manage how you receive notifications</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Email Notifications</h3>
+                    <p className="text-sm text-gray-500">Receive order updates and promotional emails</p>
+                  </div>
+                  <div className="relative inline-block w-10 mr-2 align-middle select-none">
                     <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleAvatarUpload}
-                      disabled={isUploading}
+                      type="checkbox"
+                      id="email-notifications"
+                      checked={emailNotifications}
+                      onChange={() => setEmailNotifications(!emailNotifications)}
+                      className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
                     />
-                  </label>
+                    <label
+                      htmlFor="email-notifications"
+                      className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${
+                        emailNotifications ? "bg-glacier-600" : "bg-gray-300"
+                      }`}
+                    ></label>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Order Updates</h3>
+                    <p className="text-sm text-gray-500">Receive notifications about your orders</p>
+                  </div>
+                  <div className="relative inline-block w-10 mr-2 align-middle select-none">
+                    <input
+                      type="checkbox"
+                      id="order-updates"
+                      checked={orderUpdates}
+                      onChange={() => setOrderUpdates(!orderUpdates)}
+                      className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                    />
+                    <label
+                      htmlFor="order-updates"
+                      className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${
+                        orderUpdates ? "bg-glacier-600" : "bg-gray-300"
+                      }`}
+                    ></label>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium">Promotional Emails</h3>
+                    <p className="text-sm text-gray-500">Receive emails about sales and special offers</p>
+                  </div>
+                  <div className="relative inline-block w-10 mr-2 align-middle select-none">
+                    <input
+                      type="checkbox"
+                      id="promotional-emails"
+                      checked={promotionalEmails}
+                      onChange={() => setPromotionalEmails(!promotionalEmails)}
+                      className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                    />
+                    <label
+                      htmlFor="promotional-emails"
+                      className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${
+                        promotionalEmails ? "bg-glacier-600" : "bg-gray-300"
+                      }`}
+                    ></label>
+                  </div>
                 </div>
               </div>
 
-              <form onSubmit={handleUpdateProfile} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" value={email} disabled className="bg-gray-50" />
-                  <p className="text-xs text-gray-500">Email cannot be changed. Contact support for assistance.</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-                </div>
-                <Button type="submit" className="bg-glacier-600 hover:bg-glacier-700" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    "Save Changes"
-                  )}
-                </Button>
-              </form>
+              <Button
+                // onClick={handleUpdateNotifications}
+                className="bg-glacier-600 hover:bg-glacier-700"
+                disabled={savingNotifications}
+              >
+                {savingNotifications ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Preferences"
+                )}
+              </Button>
             </CardContent>
           </Card>
-        </TabsContent>
+        )}
 
-        <TabsContent value="security" className="mt-6">
+        {/* Security Tab */}
+        {tab === "security" && (
           <Card>
             <CardHeader>
               <CardTitle>Security</CardTitle>
               <CardDescription>Manage your password and account security</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="current-password">Current Password</Label>
-                <Input id="current-password" type="password" />
+            <CardContent>
+              <form onSubmit={handlePasswordChange} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="current-password">Current Password</Label>
+                  <Input
+                    id="current-password"
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">New Password</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirm New Password</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <Button type="submit" className="bg-glacier-600 hover:bg-glacier-700" disabled={changingPassword}>
+                  {changingPassword ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    "Update Password"
+                  )}
+                </Button>
+              </form>
+
+              <div className="mt-8 pt-6 border-t">
+                <h3 className="text-lg font-medium mb-4">Two-Factor Authentication</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Add an extra layer of security to your account by enabling two-factor authentication.
+                </p>
+                <Button className="bg-glacier-600 hover:bg-glacier-700">Enable 2FA</Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="new-password">New Password</Label>
-                <Input id="new-password" type="password" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirm-password">Confirm New Password</Label>
-                <Input id="confirm-password" type="password" />
-              </div>
-              <Button className="bg-glacier-600 hover:bg-glacier-700">Update Password</Button>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        )}
+
+        {/* Settings Tab */}
+        {tab === "settings" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Account Settings</CardTitle>
+              <CardDescription>Manage your account preferences</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="language">Language</Label>
+                  <select id="language" className="w-full p-2 border rounded-md" defaultValue="en">
+                    <option value="en">English</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="currency">Currency</Label>
+                  <select id="currency" className="w-full p-2 border rounded-md" defaultValue="usd">
+                    <option value="usd">USD ($)</option>
+                    <option value="eur">EUR (€)</option>
+                    <option value="gbp">GBP (£)</option>
+                    <option value="cad">CAD ($)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-4">
+                <Button className="bg-glacier-600 hover:bg-glacier-700">Save Settings</Button>
+              </div>
+
+              <div className="pt-6 border-t mt-6">
+                <h3 className="text-lg font-medium text-red-600 mb-2">Danger Zone</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Once you delete your account, there is no going back. Please be certain.
+                </p>
+                <Button variant="destructive">Delete Account</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
+  </div>
   )
 }
 

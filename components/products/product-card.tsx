@@ -136,7 +136,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             <p className="text-sm text-muted-foreground line-through">{product.cost_price === 0 ? "Free" : formatCurrency(product.cost_price)}</p>
           )} 
         </div>
-        <Button size="sm" className="bg-glacier-600 hover:bg-glacier-700">
+        <Button size="sm" className="bg-glacier-600 hover:bg-glacier-700" onClick={() => router.push(`/product/${product.id}`)}>
           View
         </Button>
       </CardFooter>

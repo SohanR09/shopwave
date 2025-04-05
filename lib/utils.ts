@@ -26,3 +26,15 @@ export async function getSession() {
   return {session: data?.session, user: data?.session?.user, error: error}
 }
 
+export async function signOut() {
+  const supabase = await getSupabaseBrowser()
+  const { error } = await supabase.auth.signOut()
+  if (error) {
+    console.error("Error signing out:", error)
+    }
+    localStorage.clear()
+    setTimeout(() => {
+      window.location.reload()
+  }, 500)
+}
+
