@@ -6,6 +6,7 @@ import CategoryNav from "@/components/layout/category-nav"
 import Footer from "@/components/layout/footer"
 import { Toaster } from "@/components/ui/toaster"
 import { SessionProvider } from "@/components/providers/session-provider"
+import ScrollToTop from "@/components/subComponents/ScrollToTop"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -30,6 +31,7 @@ export default function StoreLayout({
               <main className="flex-1">{children}</main>
               <Footer />
               <Toaster />
+              <ScrollToTop />
             </div>
         </SessionProvider>
       </body>

@@ -18,17 +18,17 @@ export default function AuthLayout({
   children: React.ReactNode
 }) {
   return (
-    <main>
-      <SessionProvider>
-        <div className={inter.className}>
-          <div className="flex min-h-screen h-full flex-col">
-            <AuthHeader />
-            <main className="flex-1 bg-gray-100">{children}</main>
-            <Toaster />
-          </div>
-        </div>
-      </SessionProvider>
-    </main>
+      <main>
+        <SessionProvider>
+            <div className={inter.className}>
+              <div className="flex min-h-screen h-full flex-col">
+                <AuthHeader />
+                <main className="flex-1 bg-gray-100">{children}</main>
+                <Toaster />
+              </div>
+            </div>
+        </SessionProvider>
+      </main>
   )
 }
 

@@ -7,46 +7,32 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { getSupabaseBrowser } from "@/lib/supabase"
 import { formatCurrency, getSession } from "@/lib/utils"
 import type { Product } from "@/types"
-import { Heart } from "lucide-react"
+import { Heart, ShoppingCart } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { toast } from "../ui/use-toast"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { useIsWhislistItem } from "@/hooks/use-iswhislistitem"
+import { addToCart } from "@/lib/addToCart"
 
 interface ProductCardProps {
   product: Product
+  removeFromWishlist?: () => void
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
-  
+export default function ProductCard({ product, removeFromWishlist }: ProductCardProps) {
+  const isMobile = useIsMobile()
   const router = useRouter()
-  const [isWishlisted, setIsWishlisted] = useState(false)
   const [isAddingToWishlist, setIsAddingToWishlist] = useState(false)
   const supabase = getSupabaseBrowser()
 
   const[user, setUser] = useState<any>(null)
   const[session, setSession] = useState<any>(null)
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-        const wishlist = await supabase.from("wishlists").select("*").eq("user_id", user?.id)
-        if(wishlist.data){
-          for(const item of wishlist.data){
-            if(item.product_id === product.id){
-              setIsWishlisted(true)
-              return
-            }
-          }
-        }else{
-          setIsWishlisted(false)
-        }
-    }
-    if(user && session){
-      fetchProducts()
-    }
-  }, [user, session])
-
+  const {isWhislistItem, setIsWhislistItem} = useIsWhislistItem({productId: product.id, userId: user?.id})
+  const [showBag, setShowBag] = useState(false)
   useEffect(() => {
     const fetchSession = async () => {
       const {session, user} = await getSession()
@@ -74,11 +60,11 @@ export default function ProductCard({ product }: ProductCardProps) {
     setIsAddingToWishlist(true)
 
     try {
-      if (isWishlisted) {
+      if (isWhislistItem) {
         // Remove from wishlist
         await supabase.from("wishlists").delete().eq("user_id", session?.user?.id).eq("product_id", product.id)
-
-        setIsWishlisted(false)
+        removeFromWishlist?.()
+        setIsWhislistItem(false)
       } else {
         // Add to wishlist
         const { error } = await supabase.from("wishlists").insert({
@@ -94,13 +80,29 @@ export default function ProductCard({ product }: ProductCardProps) {
             variant: "destructive",
           })
         }
-
-        setIsWishlisted(true)
+        setIsWhislistItem(true)
       }
     } catch (error) {
       console.error("Error updating wishlist:", error)
     } finally {
       setIsAddingToWishlist(false)
+    }
+  }
+
+  const addingToCart = async (product: Product) => {
+    if (!user?.id || !user?.email || !user?.name) {
+      router.push("/signin")
+      return
+    }
+
+    if(product){
+      const { error, showBag, addedToCart } = await addToCart({product, userId: user.id})
+      if (error) {
+        console.log(error);
+      }
+      if(addedToCart){
+        setShowBag(showBag)
+      }
     }
   }
 
@@ -118,9 +120,9 @@ export default function ProductCard({ product }: ProductCardProps) {
           onClick={handleWishlist}
           disabled={isAddingToWishlist}
           className="absolute top-2 right-2 p-2 rounded-full bg-white/80 hover:bg-white hover:text-red-900 transition-colors"
-          aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+          aria-label={isWhislistItem ? "Remove from wishlist" : "Add to wishlist"}
         >
-          <Heart className={`h-5 w-5 hover:cursor-pointer hover:text-red-600 hover:fill-red-600 ${isWishlisted ? "fill-red-500 text-red-500" : "text-gray-600"}`} />
+          <Heart className={`h-5 w-5 hover:cursor-pointer hover:text-red-600 hover:fill-red-600 ${isWhislistItem ? "fill-red-500 text-red-500" : "text-gray-600"}`} />
         </button>
       </div>
       <CardContent className="p-4">
@@ -136,9 +138,22 @@ export default function ProductCard({ product }: ProductCardProps) {
             <p className="text-sm text-muted-foreground line-through">{product.cost_price === 0 ? "Free" : formatCurrency(product.cost_price)}</p>
           )} 
         </div>
-        <Button size="sm" className="bg-glacier-600 hover:bg-glacier-700" onClick={() => router.push(`/product/${product.id}`)}>
-          View
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            size="sm"
+            className="bg-glacier-600 hover:bg-glacier-700" 
+            onClick={() => router.push(`/product/${product.id}`)}
+          >
+            View
+          </Button>
+          <Button 
+            size="sm"
+            className="bg-glacier-600 hover:bg-glacier-700"
+            onClick={() => addingToCart(product)}
+          >
+            {isMobile ? (<ShoppingCart className="h-4 w-4" />) : "Add to Cart"}
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   )

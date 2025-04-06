@@ -140,3 +140,12 @@ export interface Review {
   user?: User
 }
 
+export interface Wishlist {
+  created_at: string
+  id: string
+  product: Product
+  product_id: string
+  user_id: string
+}
+
+

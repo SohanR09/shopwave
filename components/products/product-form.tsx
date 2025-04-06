@@ -192,7 +192,6 @@ export default function ProductForm({ initialData,onReload, setError }: ProductF
     setIsSubmitting(true)
 
     try {
-      debugger
       if (!product.name || !product.price) {
         setError("Name and price are required")
         return

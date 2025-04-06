@@ -3,19 +3,23 @@
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { getSupabaseServer } from "@/lib/supabase"
-import { formatPrice } from "@/lib/utils"
-import { Category, Product } from "@/types"
+import { formatPrice, getSession } from "@/lib/utils"
+import { Category, Product, User } from "@/types"
 import { Heart, Loader2, ShoppingCart } from "lucide-react"
 import Image from "next/image"
-import { notFound } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import ProductCard from "../products/product-card"
+import { addToCart } from "@/lib/addToCart"
+import { toast } from "@/hooks/use-toast"
+import { useIsWhislistItem } from "@/hooks/use-iswhislistitem"
 
 interface ProductPageProps {
   productId: string
 }
 
 export default function ProductDetailsPage({ productId }: ProductPageProps) {
+  const router = useRouter()
   const supabase = getSupabaseServer()
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([])
   const [product, setProduct] = useState<Product | null>({
@@ -44,6 +48,29 @@ export default function ProductDetailsPage({ productId }: ProductPageProps) {
   })
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
+  const [user, setUser] = useState<User>({
+    id: "",
+    name: "",
+    email: "",
+    phone: "",
+    avatar_url: "",
+    created_at: "",
+    updated_at: "",
+  })
+  const [showBag, setShowBag] = useState<boolean>(false)
+
+  const {isWhislistItem, setIsWhislistItem} = useIsWhislistItem({productId: productId, userId: user?.id})
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { user, error } = await getSession()
+      if (error) {
+        setError("Error fetching user")
+      }
+      setUser(user as User)
+    }
+    fetchUser()
+  }, [])
   
 
   useEffect(() => {    
@@ -99,6 +126,61 @@ export default function ProductDetailsPage({ productId }: ProductPageProps) {
     }
     product?.category_id !== "" && fetchRelatedProducts()
   }, [product])
+
+  const addingToCart = async (product: Product) => {
+    if (!user?.id || !user?.email || !user?.name) {
+      setError("User not found")
+      router.push("/signin")
+      return
+    }
+
+    if(product){
+      const { error, showBag, addedToCart } = await addToCart({product, userId: user.id})
+      if (error) {
+        setError(error)
+      }
+      if(addedToCart){
+        setShowBag(showBag)
+      }
+    }
+  }
+
+  const handleWishlist = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (!user?.id || !user?.email || !user?.name) {
+      router.push("/signin?callbackUrl=/wishlist")
+      return
+    }
+
+    try {
+      if (isWhislistItem) {
+        // Remove from wishlist
+        await supabase.from("wishlists").delete().eq("user_id", user?.id).eq("product_id", productId)
+        setIsWhislistItem(false)
+      } else {
+        // Add to wishlist
+        const { error } = await supabase.from("wishlists").insert({
+          user_id: user?.id,
+          product_id: productId,
+        })
+        if (error) {
+          console.log(error);
+          
+          toast({
+            title: "Error adding to wishlist",
+            description: error.message,
+            variant: "destructive",
+          })
+        }
+        setIsWhislistItem(true)
+      }
+    } catch (error) {
+      console.error("Error updating wishlist:", error)
+    } finally {
+    }
+  }
 
   if(error){
     return (
@@ -182,22 +264,48 @@ export default function ProductDetailsPage({ productId }: ProductPageProps) {
 
           <div className="flex items-center space-x-4">
             <span className="text-2xl font-bold">{formatPrice(product?.price || 0)}</span>
-            {product?.cost_price && (
+            {product?.cost_price && product?.price < product?.cost_price && (
               <span className="text-lg text-muted-foreground line-through">{formatPrice(product?.cost_price || 0)}</span>
             )}
           </div>
 
           <p className="text-muted-foreground">{product?.description}</p>
 
-          <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4">
-            <Button size="lg" className="bg-glacier-600 hover:bg-glacier-700">
+          <div className="flex flex-col-reverse sm:justify-start sm:items-center sm:flex-row gap-4 sm:gap-2">
+           {
+            showBag ? (
+              <Button size="lg" className="bg-glacier-600 hover:bg-glacier-700 shadow-md" onClick={() => router.push("/cart")}>
+                <ShoppingCart className="mr-2 h-4 w-4" />
+                Go to Cart
+              </Button>
+            ): (
+              <Button size="lg" className="bg-glacier-600 hover:bg-glacier-700 shadow-md" onClick={() => product && addingToCart(product)}>
               <ShoppingCart className="mr-2 h-4 w-4" />
               Add to Cart
             </Button>
-            <Button size="lg" variant="outline">
-              <Heart className="mr-2 h-4 w-4" />
-              Add to Wishlist
-            </Button>
+            )
+           }
+          {
+            isWhislistItem ? (
+              <button
+                className="p-4 rounded-full bg-glacier-100 hover:bg-glacier-400 hover:text-white transition-colors w-12 h-12 flex items-center justify-center shadow-md"
+                aria-label={isWhislistItem ? "Remove from wishlist" : "Add to wishlist"}
+                onClick={handleWishlist}
+              >
+                <Heart className={`h-6 w-6 hover:cursor-pointer hover:text-red-600 hover:fill-red-600 ${isWhislistItem ? "fill-red-500 text-red-500" : "text-gray-600"}`} />
+              </button>
+            ): (
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="bg-glacier-100 hover:bg-glacier-600 hover:text-white transition-colors shadow-md"
+                onClick={handleWishlist}
+              >
+                <Heart className="mr-2 h-4 w-4 text-red-500 fill-red-500" />
+                Add to Wishlist
+              </Button>
+            )
+          }
           </div>
 
           {/* Product Details */}
@@ -227,12 +335,7 @@ export default function ProductDetailsPage({ productId }: ProductPageProps) {
                 <ProductCard key={relatedProduct.id} product={relatedProduct} />
             ))}
             </div>
-        </div>):
-        (
-        <div className="flex justify-center items-center h-screen">
-          <p>No related products</p>
-        </div>
-      )}
+        </div>): null}
     </div>
   )
 }

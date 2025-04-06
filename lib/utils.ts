@@ -1,6 +1,7 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { getSupabaseBrowser } from "./supabase"
+import { User } from "@/types"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -23,7 +24,18 @@ export function formatPrice(amount: number): string {
 export async function getSession() {
   const supabase = await getSupabaseBrowser()
   const { data, error } = await supabase.auth.getSession()
-  return {session: data?.session, user: data?.session?.user, error: error}
+  return {
+    session: data?.session, 
+    user: {
+      id: data?.session?.user?.id,
+      email: data?.session?.user?.email,
+      phone: data?.session?.user?.phone,
+      name: data?.session?.user?.user_metadata?.name,
+      avatar_url: data?.session?.user?.user_metadata?.avatar_url,
+      created_at: data?.session?.user?.created_at,
+      updated_at: data?.session?.user?.updated_at,
+    } as User, 
+    error: error}
 }
 
 export async function signOut() {

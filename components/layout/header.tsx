@@ -34,12 +34,14 @@ function HeaderComponent() {
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+  const [cartCount, setCartCount] = useState(0)
 
   const router = useRouter()
   const [scrolled, setScrolled] = useState(false)
 
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [user, setUser] = useState<any | null>({
+    id: null,
     name: null,
     email: null,
     avatar_url: null,
@@ -76,6 +78,7 @@ function HeaderComponent() {
 
         setIsAuthenticated(!!session)
         userData && setUser({
+          id: userData?.id,
           name: userData?.name,
           email: userData?.email,
           avatar_url: userData?.avatar_url,
@@ -89,6 +92,20 @@ function HeaderComponent() {
     }
     fetchSession()
   }, [])
+
+  useEffect(() => {
+    const fetchCartCount = async () => {
+      const { data } = await supabase.from("carts").select("*").eq("user_id", user?.id as string)
+      if(data){
+        setCartCount(data?.length || 0)
+      }else{
+        setCartCount(0)
+      }
+    }
+    if(user?.id && user?.name){
+      fetchCartCount()
+    }
+  }, [user, cartCount])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -123,7 +140,7 @@ function HeaderComponent() {
   if (isLoading) {
     return <HeaderLoader />
   }
-
+  
   return (
     <header
       className={cn(
@@ -137,22 +154,6 @@ function HeaderComponent() {
           <Link href="/" className="flex items-center">
             <span className="text-2xl font-bold text-glacier-600">ShopWave</span>
           </Link>
-
-          {/* Desktop Navigation */}
-          {/* <nav className="hidden md:flex items-center space-x-8">
-            <Link href="/" className="text-sm font-medium hover:text-glacier-600">
-              Home
-            </Link>
-            <Link href="/products" className="text-sm font-medium hover:text-glacier-600">
-              All Products
-            </Link>
-            <Link href="/categories" className="text-sm font-medium hover:text-glacier-600">
-              Categories
-            </Link>
-            <Link href="/sale" className="text-sm font-medium text-red-600 hover:text-red-700">
-              Sale
-            </Link>
-          </nav> */}
 
           {/* Search Bar (Desktop) */}
           {isSearchOpen && (
@@ -185,8 +186,13 @@ function HeaderComponent() {
             <Link href="/wishlist" className="p-2 rounded-full hover:bg-gray-100">
               <Heart className="h-5 w-5" />
             </Link>
-            <Link href="/cart" className="p-2 rounded-full hover:bg-gray-100">
+            <Link href="/cart" className="p-2 rounded-full hover:bg-gray-100 relative">
               <ShoppingCart className="h-5 w-5" />
+              {cartCount > 0 && (
+                <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1 py-0.5 text-sm font-bold leading-none text-white bg-red-600 rounded-full">
+                  {cartCount}
+                </span>
+              )}
             </Link>
 
             {isAuthenticated ? (
