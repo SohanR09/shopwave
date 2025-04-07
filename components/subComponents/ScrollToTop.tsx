@@ -17,7 +17,7 @@ export default function ScrollToTop() {
     }, [])
 
     return (
-        <div className="fixed bottom-10 right-10 z-50">
+        <div className="fixed bottom-20 mb-2 right-10 z-50">
             {isVisible && (
                 <Button className="bg-glacier-600 hover:bg-glacier-700 rounded-full text-white hover:text-white border-none" variant="outline" size="icon" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
                     <ArrowUp className="w-4 h-4" />

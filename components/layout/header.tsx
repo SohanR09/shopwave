@@ -59,36 +59,36 @@ function HeaderComponent() {
         if (error) {
           console.error("Error fetching session:", error)
         }
-      }      
+      }
     }
     loginWithToken()
   }, [accessToken])
 
   const pathname = usePathname()
-  
+
   useEffect(() => {
     const fetchSession = async () => {
       setIsLoading(true)
-     try {
-      const { session, user, error } = await getSession()
-      if (error) {
-        console.error("Error fetching session:", error)
-      } else {
-        const { data: userData } = await supabase.from("users").select("*").eq("id", user?.id as string).single()
+      try {
+        const { session, user, error } = await getSession()
+        if (error) {
+          console.error("Error fetching session:", error)
+        } else {
+          const { data: userData } = await supabase.from("users").select("*").eq("id", user?.id as string).single()
 
-        setIsAuthenticated(!!session)
-        userData && setUser({
-          id: userData?.id,
-          name: userData?.name,
-          email: userData?.email,
-          avatar_url: userData?.avatar_url,
-        })
+          setIsAuthenticated(!!session)
+          userData && setUser({
+            id: userData?.id,
+            name: userData?.name,
+            email: userData?.email,
+            avatar_url: userData?.avatar_url,
+          })
+        }
+      } catch (error) {
+        console.log("Error fetching session:", error)
+      } finally {
+        setIsLoading(false)
       }
-     } catch (error) {
-      console.log("Error fetching session:", error)
-     } finally {
-      setIsLoading(false)
-     }
     }
     fetchSession()
   }, [])
@@ -96,13 +96,13 @@ function HeaderComponent() {
   useEffect(() => {
     const fetchCartCount = async () => {
       const { data } = await supabase.from("carts").select("*").eq("user_id", user?.id as string)
-      if(data){
+      if (data) {
         setCartCount(data?.length || 0)
-      }else{
+      } else {
         setCartCount(0)
       }
     }
-    if(user?.id && user?.name){
+    if (user?.id && user?.name) {
       fetchCartCount()
     }
   }, [user, cartCount])
@@ -140,7 +140,7 @@ function HeaderComponent() {
   if (isLoading) {
     return <HeaderLoader />
   }
-  
+
   return (
     <header
       className={cn(
@@ -245,8 +245,8 @@ function HeaderComponent() {
 
           {/* Mobile Menu Button */}
           <div className="flex md:hidden items-center space-x-4">
-            <Link href="/cart" className="p-2 rounded-full hover:bg-gray-100">
-              <ShoppingCart className="h-5 w-5" />
+            <Link href="/wishlist" className="p-2 rounded-full hover:bg-gray-100">
+              <Heart className="h-5 w-5" />
             </Link>
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -261,7 +261,7 @@ function HeaderComponent() {
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="md:hidden bg-white border-t">
+        <div className="md:hidden bg-white border-t h-screen">
           <div className="container mx-auto px-4 py-4">
             <form onSubmit={handleSearch} className="mb-4">
               <div className="flex items-center">
@@ -313,7 +313,7 @@ function HeaderComponent() {
               >
                 Wishlist
               </Link>
-              {status === "authenticated" ? (
+              {isAuthenticated ? (
                 <>
                   <Link
                     href="/profile"

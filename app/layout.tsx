@@ -13,7 +13,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "ShopWave - Your Online Shopping Destination",
   description: "Shop the latest trends in fashion, electronics, home goods and more.",
-    generator: 'v0.dev'
+  generator: 'v0.dev'
 }
 
 export default function StoreLayout({
@@ -24,15 +24,16 @@ export default function StoreLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
-          <SessionProvider>
-            <div className={`flex min-h-screen flex-col ${inter.className}`}>
-              <Header />
-              <CategoryNav />
-              <main className="flex-1">{children}</main>
-              <Footer />
-              <Toaster />
-              <ScrollToTop />
-            </div>
+        <SessionProvider>
+          <div className={`flex min-h-screen flex-col ${inter.className}`}>
+            <Header />
+            <CategoryNav />
+            <main className="flex-1">{children}</main>
+            <Footer />
+            <MobileNavMenu />
+            <Toaster />
+            <ScrollToTop />
+          </div>
         </SessionProvider>
       </body>
     </html>
@@ -42,3 +43,4 @@ export default function StoreLayout({
 
 
 import './globals.css'
+import MobileNavMenu from "@/components/layout/mobile-nav"
