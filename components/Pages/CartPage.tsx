@@ -12,6 +12,8 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Separator } from "@/components/ui/separator"
 import { Trash, Loader2, Plus, Minus, ShoppingBag } from "lucide-react"
 import { formatCurrency, getSession } from "@/lib/utils"
+import CartItems from "../subComponents/CartPage/CartItems"
+import CartSummary from "../subComponents/CartPage/CartSummary"
 // import { CartItem } from "@/types"
 
 export default function CartPage() {
@@ -20,7 +22,6 @@ export default function CartPage() {
 
   const [cartItems, setCartItems] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [isUpdating, setIsUpdating] = useState<Record<string, boolean>>({})
   const [couponCode, setCouponCode] = useState("")
 
   const [session, setSession] = useState<any | null>(null)
@@ -32,7 +33,7 @@ export default function CartPage() {
       const { session, user, error } = await getSession()
       if (error) {
         console.error("Error fetching session:", error)
-      }else{
+      } else {
         setSession(session)
         setUser(user)
         setStatus(session?.user?.id ? "authenticated" : "unauthenticated")
@@ -80,55 +81,6 @@ export default function CartPage() {
     }
   }
 
-  const updateQuantity = async (cartId: string, newQuantity: number) => {
-    if (!session?.user?.id || newQuantity < 1) return
-
-    setIsUpdating((prev) => ({ ...prev, [cartId]: true }))
-    try {
-      const { error } = await supabase
-        .from("carts")
-        .update({ quantity: newQuantity })
-        .eq("id", cartId)
-        .eq("user_id", session.user.id)
-
-      if (error) throw error
-
-      // Update local state
-      setCartItems((prev) => prev.map((item) => (item.id === cartId ? { ...item, quantity: newQuantity } : item)))
-    } catch (error) {
-      console.error("Error updating cart:", error)
-    } finally {
-      setIsUpdating((prev) => ({ ...prev, [cartId]: false }))
-    }
-  }
-
-  const removeFromCart = async (cartId: string) => {
-    if (!session?.user?.id) return
-
-    setIsUpdating((prev) => ({ ...prev, [cartId]: true }))
-    try {
-      const { error } = await supabase.from("carts").delete().eq("id", cartId).eq("user_id", session.user.id)
-
-      if (error) throw error
-
-      // Update local state
-      setCartItems((prev) => prev.filter((item) => item.id !== cartId))
-    } catch (error) {
-      console.error("Error removing from cart:", error)
-    } finally {
-      setIsUpdating((prev) => ({ ...prev, [cartId]: false }))
-    }
-  }
-
-  const calculateSubtotal = () => {
-    return cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
-  }
-
-  const calculateTotal = () => {
-    const subtotal = calculateSubtotal()
-    // Add tax, shipping, etc. if needed
-    return subtotal
-  }
 
   if (status === "loading") {
     return (
@@ -157,108 +109,14 @@ export default function CartPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Cart Items */}
           <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Cart Items ({cartItems.length})</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {cartItems.map((item) => (
-                  <div key={item.id} className="flex flex-col sm:flex-row gap-4 py-4 border-b last:border-0">
-                    <div className="relative w-full sm:w-24 h-24">
-                      <Image
-                        src={item.product.images?.[0]?.url || "/placeholder.svg?height=200&width=200"}
-                        alt={item.product.name}
-                        fill
-                        className="object-cover rounded"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <Link href={`/product/${item.product.id}`}>
-                        <h3 className="font-medium hover:text-glacier-600">{item.product.name}</h3>
-                      </Link>
-                      <div className="mt-1 text-gray-500 text-sm">Price: {formatCurrency(item.product.price)}</div>
-                      <div className="mt-4 flex items-center justify-between">
-                        <div className="flex items-center">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 rounded-r-none"
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                            disabled={item.quantity <= 1 || isUpdating[item.id]}
-                          >
-                            <Minus className="h-3 w-3" />
-                          </Button>
-                          <div className="h-8 px-3 flex items-center justify-center border-y">
-                            {isUpdating[item.id] ? <Loader2 className="h-3 w-3 animate-spin" /> : item.quantity}
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 rounded-l-none"
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                            disabled={isUpdating[item.id]}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => removeFromCart(item.id)}
-                          disabled={isUpdating[item.id]}
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="text-right font-medium">{formatCurrency(item.product.price * item.quantity)}</div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+            <CartItems initialCartItems={cartItems} user={user} />
           </div>
 
+          {/* Cart Summary */}
           <div>
-            <Card>
-              <CardHeader>
-                <CardTitle>Order Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span>{formatCurrency(calculateSubtotal())}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Shipping</span>
-                  <span>Calculated at checkout</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Tax</span>
-                  <span>Calculated at checkout</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between font-medium text-lg">
-                  <span>Total</span>
-                  <span>{formatCurrency(calculateTotal())}</span>
-                </div>
-
-                <div className="pt-4">
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Coupon code"
-                      value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value)}
-                    />
-                    <Button variant="outline">Apply</Button>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button className="w-full bg-glacier-600 hover:bg-glacier-700">Proceed to Checkout</Button>
-              </CardFooter>
-            </Card>
+            <CartSummary initialCartItems={cartItems} user={user} />
           </div>
         </div>
       )}

@@ -20,7 +20,11 @@ export async function getWishlistItems({userId}: {userId: string}) {
             slug,
             price,
             inventory_quantity,
-            images:product_images(url)
+            images:product_images(url),
+            category:categories(
+              id,
+              name
+            )
           )
         `)
         .eq("user_id", userId)

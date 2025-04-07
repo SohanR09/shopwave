@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Search, MoreHorizontal, Eye } from "lucide-react"
+import { Search, MoreHorizontal, Eye, Trash } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { useRouter } from "next/navigation"
@@ -37,7 +37,7 @@ export default function CustomersPage() {
       const { data, error } = await supabase.from("users").select("*").order("created_at", { ascending: false })
 
       if (error) throw error
-      setCustomers(data || [])
+      setCustomers(data as any[])
     } catch (error: any) {
       console.error("Error fetching customers:", error.message)
       toast({
@@ -63,6 +63,20 @@ export default function CustomersPage() {
       customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       customer.email.toLowerCase().includes(searchQuery.toLowerCase()),
   )
+
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase.from("users").delete().eq("id", id)
+      if (error) throw error
+      toast({
+        title: "User deleted",
+        description: "User has been deleted successfully",
+      })
+      fetchCustomers()
+    } catch (error: any) {
+      console.error("Error deleting user:", error.message)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -139,9 +153,13 @@ export default function CustomersPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => router.push(`/admin/customers/${customer.id}`)}>
+                            <DropdownMenuItem onClick={() => router.push(`/admin/customers/${customer.id}`)} className="hover:cursor-pointer">
                               <Eye className="mr-2 h-4 w-4" />
                               View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDelete(customer.id)} className="text-red-500 hover:text-red-600 hover:bg-red-50 hover:cursor-pointer">
+                              <Trash className="mr-2 h-4 w-4" />
+                              Delete User
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

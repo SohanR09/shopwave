@@ -2,20 +2,46 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { LayoutDashboard, ShoppingBag, Users, Package, FileText, Settings, LogOut, Menu, X } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { usePathname, useRouter } from "next/navigation"
+import { LayoutDashboard, ShoppingBag, Users, Package, FileText, Settings, LogOut, Menu, X, Loader2 } from "lucide-react"
+import { cn, getSession } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { getSupabaseBrowser } from "@/lib/supabase"
 
 interface AdminLayoutProps {
   children: React.ReactNode
 }
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
+  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
+  const supabase = getSupabaseBrowser()
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const { user } = await getSession()
+        if (user) {
+          const { data: userData, error } = await supabase.from("users").select("role").eq("id", user?.id).single()
+          if (error) {
+            console.log(error)
+          }
+          if (userData?.role !== "admin") {
+            router.push("/")
+          }
+        }
+      } catch (error) {
+        console.log(error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchSession()
+  }, [])
 
   const routes = [
     {
@@ -24,7 +50,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       icon: LayoutDashboard,
       active: pathname === "/admin",
     },
-     {
+    {
       label: "Categories",
       href: "/admin/categories",
       icon: Package,
@@ -49,6 +75,14 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       active: pathname.includes("/admin/orders"),
     },
   ]
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-10 w-10 text-glacier-200 animate-spin" />
+      </div>
+    )
+  }
 
   return (
     <div className="h-full relative">

@@ -75,3 +75,21 @@
   }
 }
 
+.carousel {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+}
+.carousel-inner {
+  display: flex;
+  transition: transform 0.5s ease-in-out;
+  animation: scroll 15s linear infinite;
+}
+.carousel-item {
+  min-width: 100%;
+}
+@keyframes scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+

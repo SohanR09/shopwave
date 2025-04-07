@@ -24,16 +24,19 @@ export function formatPrice(amount: number): string {
 export async function getSession() {
   const supabase = await getSupabaseBrowser()
   const { data, error } = await supabase.auth.getSession()
+
+  const { data: userData, error: userError } = await supabase.from("users").select("*").eq("id", data?.session?.user?.id as string)
+
   return {
     session: data?.session, 
     user: {
-      id: data?.session?.user?.id,
-      email: data?.session?.user?.email,
-      phone: data?.session?.user?.phone,
-      name: data?.session?.user?.user_metadata?.name,
-      avatar_url: data?.session?.user?.user_metadata?.avatar_url,
-      created_at: data?.session?.user?.created_at,
-      updated_at: data?.session?.user?.updated_at,
+      id: userData?.[0]?.id,
+      email: userData?.[0]?.email,
+      phone: userData?.[0]?.phone,
+      name: userData?.[0]?.name,
+      avatar_url: userData?.[0]?.avatar_url,
+      created_at: userData?.[0]?.created_at,
+      updated_at: userData?.[0]?.updated_at,
     } as User, 
     error: error}
 }
